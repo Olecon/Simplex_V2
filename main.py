@@ -10,6 +10,11 @@ import pandas as pd
 import numpy as np
 from lmfit import Model
 import math
+import keyboard
+import pyperclip
+import time
+
+
 
 class Window(QtWidgets.QMainWindow,GUI_frame.Ui_MainWindow):
     def __init__(self):
@@ -29,7 +34,7 @@ class Window(QtWidgets.QMainWindow,GUI_frame.Ui_MainWindow):
         self.change_file.clicked.connect(lambda: Function.change_file(self))
         self.Calibration.clicked.connect(lambda: Function.use_calib(self))
         self.Graph.triggered.connect(lambda:Function.Plot_graph(self))
-        self.Table_calc.clicked.connect(lambda: Function.review_data(self))
+        self.Table_calc.clicked.connect(lambda: Function.review_data(self,True))
         self.Baseline_check.stateChanged.connect(lambda: Function.Usage_baseline(self))
         self.Calculation.clicked.connect(lambda: Function.Approximation(self))
 
@@ -39,6 +44,18 @@ class Window(QtWidgets.QMainWindow,GUI_frame.Ui_MainWindow):
         self.review_table_button.triggered.connect(lambda: Function.reviev_Table(self))
         self.Calculation_2.clicked.connect(lambda: Function.Bad_Approximation(self))
         self.action_4.triggered.connect(lambda: Function.Save_Table(self))
+
+        self.Entalpy_edit.returnPressed.connect(lambda: Function.Data_add(self,'dH',self.Entalpy_edit.text()))
+        self.Enthropy_edit.returnPressed.connect(lambda: Function.Data_add(self,'dS',self.Enthropy_edit.text()))
+
+        self.Bds_edit.returnPressed.connect(lambda: Function.Data_add(self,'Bds',self.Bds_edit.text()))
+        self.Cds_edit.returnPressed.connect(lambda: Function.Data_add(self,'Cds',self.Cds_edit.text()))
+        self.Bss_edit.returnPressed.connect(lambda: Function.Data_add(self,'Bss',self.Bss_edit.text()))
+        self.Css_edit.returnPressed.connect(lambda: Function.Data_add(self,'Css',self.Css_edit.text()))
+
+        self.point_to_derivative.valueChanged.connect(lambda: Function.Recalc_dA(self, self.point_to_derivative.value()))
+
+        keyboard.add_hotkey('ctrl+c', lambda: Function.HotKeyCopy(self))
 
 class Function(Window):
     
@@ -161,6 +178,7 @@ class Function(Window):
         self.Table_data = pd.DataFrame({"Sample":[str(i[0]) for i in self.Calib_Data[0]], 
                                        "Name":[str(i[1]) for i in self.Calib_Data[0]],
                                        "Conc":[str(i[2]) for i in self.Calib_Data[0]],
+                                       "Dev": [4 for i in self.Calib_Data[0]],
                                        "sT":[5.0 for i in self.Calib_Data[0]],
                                        "eT":[95.0 for i in self.Calib_Data[0]],
                                        "light":[i[4] for i in self.Calib_Data[0]],
@@ -270,10 +288,10 @@ class Function(Window):
             self.max_line_to_PLT.setPos(self.max_line_to_DPLT.getPos())
         else:
             print("ERROR")
-        self.Start_temp_edit.setText(str(self.Table_data.loc[self.selected_row,'sT']))
-        self.End_temp_edit.setText(str(self.Table_data.loc[self.selected_row,'eT']))
+        #self.Start_temp_edit.setText(str(self.Table_data.loc[self.selected_row,'sT']))
+        #self.End_temp_edit.setText(str(self.Table_data.loc[self.selected_row,'eT']))
     
-    def review_data(self):
+    def review_data(self,edit):
         self.selected_row = self.Table_calc.currentItem().row()
         try:
             self.PLT.removeItem(self.plot)
@@ -477,15 +495,17 @@ class Function(Window):
         self.max_line_to_PLT.setPos(self.Table_data.loc[self.selected_row,'eT'])
         self.min_line_to_DPLT.setPos(self.Table_data.loc[self.selected_row,'sT']) 
         self.max_line_to_DPLT.setPos(self.Table_data.loc[self.selected_row,'eT'])
+        self.point_to_derivative.setValue(self.Table_data.loc[self.selected_row,'Dev'])
 
-        self.Entalpy_edit.setText(str(round(self.Table_data.loc[self.selected_row,'dH'],2)))
-        self.Enthropy_edit.setText(str(round(self.Table_data.loc[self.selected_row,'dS'],2)))
-        self.Bss_edit.setText(str(round(self.Table_data.loc[self.selected_row,'Bss'],4)))
-        self.Css_edit.setText(str(round(self.Table_data.loc[self.selected_row,'Css'],4)))
-        self.Bds_edit.setText(str(round(self.Table_data.loc[self.selected_row,'Bds'],4)))
-        self.Cds_edit.setText(str(round(self.Table_data.loc[self.selected_row,'Cds'],4)))
-        self.Start_temp_edit.setText(str(round(self.Table_data.loc[self.selected_row,'sT'],1)))
-        self.End_temp_edit.setText(str(round(self.Table_data.loc[self.selected_row,'eT'],1)))
+        if edit == True:
+            self.Entalpy_edit.setText(str(round(self.Table_data.loc[self.selected_row,'dH'],2)))
+            self.Enthropy_edit.setText(str(round(self.Table_data.loc[self.selected_row,'dS'],2)))
+            self.Bss_edit.setText('{:.6e}'.format(self.Table_data.loc[self.selected_row,'Bss']))
+            self.Css_edit.setText('{:.6e}'.format(self.Table_data.loc[self.selected_row,'Css']))
+            self.Bds_edit.setText('{:.6e}'.format(self.Table_data.loc[self.selected_row,'Bds']))
+            self.Cds_edit.setText('{:.6e}'.format(self.Table_data.loc[self.selected_row,'Cds']))
+        #self.Start_temp_edit.setText(str(round(self.Table_data.loc[self.selected_row,'sT'],1)))
+        #self.End_temp_edit.setText(str(round(self.Table_data.loc[self.selected_row,'eT'],1)))
 
     def Usage_baseline(self):
         prepare_mass = [] 
@@ -519,6 +539,8 @@ class Function(Window):
             [self.Table_calc.showRow(i) for i in set([j[1] for j in prepare_mass])] # Показать строки базовой линии
             self.Baseline_list.setEnabled(True)
             self.menu_6.setDisabled(False)
+        for EXP in range(0,len(self.Calib_Data[0])):
+            self.Table_data.loc[EXP,'Dev'] = 4
 
     def Approximation(self):
         Start_parametrs = []
@@ -605,9 +627,9 @@ class Function(Window):
                                 x = self.Calib_Data[1][EXP][0][Start_TEMP_INDEX:END_TEMP_INDEX])                                            
             
             if bool(self.Start_conf[0]) == True: 
-                try:self.Table_calc.setItem(EXP,self.Name_list.index('dH'), QtWidgets.QTableWidgetItem(str(round(result.params['dH'].value,2))))
+                try:self.Table_calc.setItem(EXP,self.Name_list.index('dH'), QtWidgets.QTableWidgetItem('{:.6e}'.format(result.params['dH'].value)))
                 except:pass
-                try: self.Table_calc.setItem(EXP,self.Name_list.index('ErrordH'), QtWidgets.QTableWidgetItem(str(round(result.params['dH'].stderr,2))))
+                try: self.Table_calc.setItem(EXP,self.Name_list.index('ErrordH'), QtWidgets.QTableWidgetItem('{:.6e}'.format(result.params['dH'].stderr)))
                 except:pass
                 self.Table_data.loc[EXP,'dH'] = result.params['dH'].value
                 self.Table_data.loc[EXP,'ErrordH'] = result.params['dH'].stderr
@@ -617,9 +639,9 @@ class Function(Window):
                 try: self.Table_calc.setItem(EXP,self.Name_list.index('ErrordH'), QtWidgets.QTableWidgetItem("0"))
                 except:pass
             if bool(self.Start_conf[1]) == True: 
-                try:self.Table_calc.setItem(EXP,self.Name_list.index('dS'), QtWidgets.QTableWidgetItem(str(round(result.params['dS'].value,2))))
+                try:self.Table_calc.setItem(EXP,self.Name_list.index('dS'), QtWidgets.QTableWidgetItem('{:.6e}'.format(result.params['dS'].value)))
                 except:pass    
-                try:self.Table_calc.setItem(EXP,self.Name_list.index('ErrordS'), QtWidgets.QTableWidgetItem(str(round(result.params['dS'].stderr,2))))
+                try:self.Table_calc.setItem(EXP,self.Name_list.index('ErrordS'), QtWidgets.QTableWidgetItem('{:.6e}'.format(result.params['dS'].stderr)))
                 except:pass
                 self.Table_data.loc[EXP,'dS'] = result.params['dS'].value
                 self.Table_data.loc[EXP,'ErrordS'] = result.params['dS'].stderr
@@ -632,7 +654,7 @@ class Function(Window):
             for i in range(0,4):
                 mass_name = ['Bss','Css','Bds','Cds']
                 if bool(self.Start_conf[2+i]):
-                    try:self.Table_calc.setItem(EXP,self.Name_list.index(mass_name[i]), QtWidgets.QTableWidgetItem(str(round(result.params[mass_name[i]].value,4))))
+                    try:self.Table_calc.setItem(EXP,self.Name_list.index(mass_name[i]), QtWidgets.QTableWidgetItem('{:.6e}'.format(result.params[mass_name[i]].value)))
                     except:pass
                     self.Table_data.loc[EXP,mass_name[i]] = result.params[mass_name[i]].value
                 else:
@@ -641,10 +663,10 @@ class Function(Window):
                     self.Table_data.loc[EXP,mass_name[i]] = Start_parametrs[2+i]
            
             self.Table_data.loc[EXP,'dG'] = result.params['dH'].value-(self.dG_temp.value()+273.15)*result.params['dS'].value
-            try:self.Table_calc.setItem(EXP,self.Name_list.index('dG'), QtWidgets.QTableWidgetItem(str(round(result.params['dH'].value - (self.dG_temp.value()+273.15)*result.params['dS'].value,2))))
+            try:self.Table_calc.setItem(EXP,self.Name_list.index('dG'), QtWidgets.QTableWidgetItem('{:.6e}'.format(result.params['dH'].value - (self.dG_temp.value()+273.15)*result.params['dS'].value)))
             except:pass
 
-            try:self.Table_calc.setItem(EXP,self.Name_list.index('CKO'), QtWidgets.QTableWidgetItem(str(round(result.chisqr,6))))
+            try:self.Table_calc.setItem(EXP,self.Name_list.index('CKO'), QtWidgets.QTableWidgetItem('{:.6e}'.format(result.chisqr)))
             except:pass
             self.Table_data.loc[EXP,'CKO'] = result.chisqr
 
@@ -657,7 +679,7 @@ class Function(Window):
             self.Table_calc.setItem(EXP,self.Name_list.index('Tm'), QtWidgets.QTableWidgetItem(str(round(Tm-273.15,2))))
             self.Table_data.loc[EXP,'Tm'] = Tm-273.15
             print("Температура плавления: " +str(Tm-273.15))
-            Function.review_data(self)
+            Function.review_data(self, True)
 
     def Bad_Approximation(self):
         for EXP in set([i.row() for i in self.Table_calc.selectionModel().selectedIndexes()]):
@@ -702,14 +724,17 @@ class Function(Window):
             
 
             try:
-                self.Table_calc.setItem(EXP,self.Name_list.index('dH'), QtWidgets.QTableWidgetItem(str(dH)))
-                self.Table_calc.setItem(EXP,self.Name_list.index('dS'), QtWidgets.QTableWidgetItem(str(dS)))
+                self.Table_calc.setItem(EXP,self.Name_list.index('dH'), QtWidgets.QTableWidgetItem('{:.6e}'.format(dH)))
+                self.Table_calc.setItem(EXP,self.Name_list.index('dS'), QtWidgets.QTableWidgetItem('{:.6e}'.format(dS)))
             except:
                 pass
             self.Table_data.loc[EXP,'dH'] = dH
             self.Table_data.loc[EXP,'dS'] = dS
-
-            Function.review_data(self)
+            if not self.Bss.isChecked():
+                self.Table_data.loc[EXP,'Bss'] = self.Calib_Data[1][EXP][1][Start_TEMP_INDEX]
+            if not self.Bds.isChecked():
+                self.Table_data.loc[EXP,'Bds'] = self.Calib_Data[1][EXP][1][END_TEMP_INDEX]
+            Function.review_data(self, True)
 
     def Save_data(self, savetype, method):
         file_out , check = QFileDialog.getSaveFileName(None, "QFileDialog.getOpenFileName()","", "All Files (*);;Python Files (*.py);;Text Files (*.txt)")
@@ -803,7 +828,29 @@ class Function(Window):
                         row_data.append('')
                 row_data = ";".join(row_data).replace(".",",")
                 file.write(str(row_data)+"\n")
-                
+
+    def Data_add(self,Name, data):
+          self.Table_calc.setItem(self.selected_row,self.Name_list.index(Name), QtWidgets.QTableWidgetItem('{:.6e}'.format(float(data))))
+          self.Table_data.loc[self.selected_row,Name] = float(data)
+          Function.review_data(self, False)
+
+    def Recalc_dA(self, point):
+        Mass_X = []
+        Mass_Y = []
+
+        for POINT in range(0,len(self.Calib_Data[1][self.selected_row][0])-point):
+            Mass_Y.append(np.polyfit(self.Calib_Data[1][self.selected_row][0][POINT:POINT+point],self.Calib_Data[1][self.selected_row][1][POINT:POINT+point],deg=1).tolist()[0])
+            Mass_X.append(sum(self.Calib_Data[1][self.selected_row][0][POINT:POINT+point])/len(self.Calib_Data[1][self.selected_row][0][POINT:POINT+point]))
+        self.Calib_Data[2][self.selected_row] = [Mass_X,Mass_Y]
+        self.Table_data.loc[self.selected_row,'Dev'] = self.point_to_derivative.value()
+        Function.review_data(self,True)
+
+    def HotKeyCopy(self):
+        time.sleep(1)
+        pyperclip.copy(self.Table_data.iloc[[i.row() for i in self.Table_calc.selectionModel().selectedIndexes()]].to_csv())
+
+
+
 def main():
     app = QtWidgets.QApplication(sys.argv)
     window = Window()
