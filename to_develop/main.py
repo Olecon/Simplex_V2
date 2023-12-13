@@ -859,7 +859,8 @@ class Function(Window):
 
     def HotKeyCopy(self):
         time.sleep(1)
-        data = str(self.File_open) +"\n"+ self.Table_data.iloc[[i.row() for i in self.Table_calc.selectionModel().selectedIndexes()]].to_csv()
+        list_row = [i for i in set([i.row() for i in self.Table_calc.selectionModel().selectedIndexes()])]
+        data = str(self.File_open) +"\n"+ self.Table_data.iloc[list_row].to_csv()
         pyperclip.copy(data)
 
 
