@@ -357,7 +357,6 @@ class Ui_MainWindow(object):
         self.menu_2.addAction(self.actionSimplexV2)
         self.menu_6.addAction(self.actionSimplexV1_2)
         self.menu_6.addAction(self.actionSimplexV2_2)
-        self.menu_5.addAction(self.Tab_in_buff)
         self.menu_5.addAction(self.action_4)
         self.menu_5.addAction(self.menu_2.menuAction())
         self.menu_5.addAction(self.menu_6.menuAction())

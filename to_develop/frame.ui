@@ -671,7 +671,6 @@
       <addaction name="actionSimplexV1_2"/>
       <addaction name="actionSimplexV2_2"/>
      </widget>
-     <addaction name="Tab_in_buff"/>
      <addaction name="action_4"/>
      <addaction name="menu_2"/>
      <addaction name="menu_6"/>

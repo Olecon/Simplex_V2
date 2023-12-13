@@ -11,6 +11,8 @@ import numpy as np
 from lmfit import Model
 import math
 import pyperclip
+import keyboard
+import time 
 
 class Window(QtWidgets.QMainWindow,GUI_frame.Ui_MainWindow):
     def __init__(self):
@@ -21,6 +23,8 @@ class Window(QtWidgets.QMainWindow,GUI_frame.Ui_MainWindow):
         self.Table_data = []
         self.Start_conf = []
         self.selected_row = 0
+
+        #self.setFocus()
 
         Function.read_configure(self)
         Function.Plot_graph(self)
@@ -51,7 +55,7 @@ class Window(QtWidgets.QMainWindow,GUI_frame.Ui_MainWindow):
 
         self.point_to_derivative.valueChanged.connect(lambda: Function.Recalc_dA(self, self.point_to_derivative.value()))
         self.Run_Command.clicked.connect(lambda: Function.Write(self))
-        self.Tab_in_buff.triggered.connect(lambda: Function.HotKeyCopy(self))
+        keyboard.add_hotkey('ctrl+C', lambda: Function.HotKeyCopy(self))
 
 class Function(Window):
     
@@ -139,7 +143,6 @@ class Function(Window):
         self.Calibration.setDisabled(True)
         self.Table_calc.setRowCount(0)
         self.action_4.setDisabled(True)
-        self.Tab_in_buff.setDisabled(True)
 
         try:
             if self.pribor.currentText() == 'SimplexV1' or self.pribor.currentText() == 'SimplexV2' :
@@ -219,7 +222,6 @@ class Function(Window):
         self.Table_calc.resizeColumnsToContents()
         self.review_table_button.setDisabled(False)
         self.action_4.setDisabled(False)
-        self.Tab_in_buff.setDisabled(False)
 
     def Plot_graph(self):
         #Graph
@@ -856,8 +858,10 @@ class Function(Window):
         Function.review_data(self,True)
 
     def HotKeyCopy(self):
-        if self.isMinimized():
+        if not self.Table_calc.hasFocus():
             return
+        print('СРАБОТАЛ')
+        time.sleep(0.5)
         list_row = [i for i in set([i.row() for i in self.Table_calc.selectionModel().selectedIndexes()])]
         data = str(self.File_open) +"\n"+ self.Table_data.iloc[list_row].to_csv().replace(',',';').replace('.',',')
         pyperclip.copy(data)
@@ -869,8 +873,6 @@ class Function(Window):
                 self.Table_data.loc[cell[0],self.Name_list[cell[1]]] = float(self.CommandLine.text())
             except:
                 self.Table_data.loc[cell[0],self.Name_list[cell[1]]] = float(self.CommandLine.text())
-                
-
 def main():
     app = QtWidgets.QApplication(sys.argv)
     window = Window()
