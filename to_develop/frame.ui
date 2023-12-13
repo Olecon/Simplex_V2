@@ -671,6 +671,7 @@
       <addaction name="actionSimplexV1_2"/>
       <addaction name="actionSimplexV2_2"/>
      </widget>
+     <addaction name="Tab_in_buff"/>
      <addaction name="action_4"/>
      <addaction name="menu_2"/>
      <addaction name="menu_6"/>
@@ -732,7 +733,7 @@
     <bool>false</bool>
    </property>
    <property name="text">
-    <string>Таблицу</string>
+    <string>Таблицу в файл</string>
    </property>
   </action>
   <action name="save_parametrs">
@@ -938,6 +939,14 @@
    </property>
    <property name="text">
     <string>Перерисовать таблицу</string>
+   </property>
+  </action>
+  <action name="Tab_in_buff">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>Таблицу в буфер</string>
    </property>
   </action>
  </widget>

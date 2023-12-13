@@ -351,9 +351,13 @@ class Ui_MainWindow(object):
         self.review_table_button = QtGui.QAction(parent=MainWindow)
         self.review_table_button.setEnabled(False)
         self.review_table_button.setObjectName("review_table_button")
+        self.Tab_in_buff = QtGui.QAction(parent=MainWindow)
+        self.Tab_in_buff.setEnabled(False)
+        self.Tab_in_buff.setObjectName("Tab_in_buff")
         self.menu_2.addAction(self.actionSimplexV2)
         self.menu_6.addAction(self.actionSimplexV1_2)
         self.menu_6.addAction(self.actionSimplexV2_2)
+        self.menu_5.addAction(self.Tab_in_buff)
         self.menu_5.addAction(self.action_4)
         self.menu_5.addAction(self.menu_2.menuAction())
         self.menu_5.addAction(self.menu_6.menuAction())
@@ -419,7 +423,7 @@ class Ui_MainWindow(object):
         self.menu_4.setTitle(_translate("MainWindow", "Конфигурация"))
         self.exit.setText(_translate("MainWindow", "Выход"))
         self.actionCary_3500.setText(_translate("MainWindow", "Cary_3500"))
-        self.action_4.setText(_translate("MainWindow", "Таблицу"))
+        self.action_4.setText(_translate("MainWindow", "Таблицу в файл"))
         self.save_parametrs.setText(_translate("MainWindow", "Сохранить конфигурацию"))
         self.actionSample.setText(_translate("MainWindow", "Sample"))
         self.action123.setText(_translate("MainWindow", "123"))
@@ -449,6 +453,7 @@ class Ui_MainWindow(object):
         self.actionSimplexV1_3.setText(_translate("MainWindow", "SimplexV1"))
         self.actionSimplexV2_3.setText(_translate("MainWindow", "SimplexV2"))
         self.review_table_button.setText(_translate("MainWindow", "Перерисовать таблицу"))
+        self.Tab_in_buff.setText(_translate("MainWindow", "Таблицу в буфер"))
 
 
 if __name__ == "__main__":
