@@ -129,9 +129,21 @@ class Function(Window):
             exec("result = read_file."+str(self.pribor.currentText())+"(file)",globals(),locals())
         except:
             print("Не смог распарсить файл")
+            return
         
         self.Source_data = locals()['result']
+        self.File_open = copy.deepcopy(file)
         
+        self.menu_2.setDisabled(True)
+        self.menu_6.setDisabled(True)
+        self.Baseline_list.setDisabled(True)
+        self.Baseline_check.setDisabled(True)
+        self.Baseline_check.setChecked(False)
+        self.Baseline_list.clear()
+        self.Calibration.setDisabled(True)
+        self.Table_calc.setRowCount(0)
+        self.action_4.setDisabled(True)
+
         try:
             if self.pribor.currentText() == 'SimplexV1' or self.pribor.currentText() == 'SimplexV2' :
                 self.Calib_Data = copy.deepcopy(self.Source_data)
@@ -144,23 +156,16 @@ class Function(Window):
                         Mass_X.append(self.Source_data[1][EXP][0][POINT+2])
                     Mass.append([Mass_X,Mass_Y])
                 
-                self.Table_calc.setRowCount(0)
                 self.Calib_Data.append(Mass)
                 self.Baseline_list.clear()
                 self.Baseline_list.addItems(set([i[4] for i in self.Calib_Data[0]]))
                 self.Baseline_list.setDisabled(False)
                 self.Baseline_check.setDisabled(False)
                 self.menu_6.setDisabled(False)
-                self.menu_2.setDisabled(True)
                 Function.Create_Table_Data(self)
             else:
+                self.menu_2.setDisabled(False)
                 self.Calibration.setDisabled(False)
-                self.Table_calc.setRowCount(0)
-                self.menu_6.setDisabled(True)
-                self.Baseline_list.clear()
-                self.Baseline_list.setDisabled(True)
-                self.Baseline_check.setDisabled(True)
-                self.Baseline_check.setChecked(False)
         except:
             pass
 
@@ -627,9 +632,9 @@ class Function(Window):
                                 x = self.Calib_Data[1][EXP][0][Start_TEMP_INDEX:END_TEMP_INDEX])                                            
             
             if bool(self.Start_conf[0]) == True: 
-                try:self.Table_calc.setItem(EXP,self.Name_list.index('dH'), QtWidgets.QTableWidgetItem('{:.6e}'.format(result.params['dH'].value)))
+                try:self.Table_calc.setItem(EXP,self.Name_list.index('dH'), QtWidgets.QTableWidgetItem(str(round(result.params['dH'].value,2))))
                 except:pass
-                try: self.Table_calc.setItem(EXP,self.Name_list.index('ErrordH'), QtWidgets.QTableWidgetItem('{:.6e}'.format(result.params['dH'].stderr)))
+                try: self.Table_calc.setItem(EXP,self.Name_list.index('ErrordH'), QtWidgets.QTableWidgetItem(str(round(result.params['dH'].stderr,2))))
                 except:pass
                 self.Table_data.loc[EXP,'dH'] = result.params['dH'].value
                 self.Table_data.loc[EXP,'ErrordH'] = result.params['dH'].stderr
@@ -639,9 +644,9 @@ class Function(Window):
                 try: self.Table_calc.setItem(EXP,self.Name_list.index('ErrordH'), QtWidgets.QTableWidgetItem("0"))
                 except:pass
             if bool(self.Start_conf[1]) == True: 
-                try:self.Table_calc.setItem(EXP,self.Name_list.index('dS'), QtWidgets.QTableWidgetItem('{:.6e}'.format(result.params['dS'].value)))
+                try:self.Table_calc.setItem(EXP,self.Name_list.index('dS'), QtWidgets.QTableWidgetItem(str(round(result.params['dS'].value,2))))
                 except:pass    
-                try:self.Table_calc.setItem(EXP,self.Name_list.index('ErrordS'), QtWidgets.QTableWidgetItem('{:.6e}'.format(result.params['dS'].stderr)))
+                try:self.Table_calc.setItem(EXP,self.Name_list.index('ErrordS'), QtWidgets.QTableWidgetItem(str(round(result.params['dS'].stderr,2))))
                 except:pass
                 self.Table_data.loc[EXP,'dS'] = result.params['dS'].value
                 self.Table_data.loc[EXP,'ErrordS'] = result.params['dS'].stderr
@@ -654,7 +659,7 @@ class Function(Window):
             for i in range(0,4):
                 mass_name = ['Bss','Css','Bds','Cds']
                 if bool(self.Start_conf[2+i]):
-                    try:self.Table_calc.setItem(EXP,self.Name_list.index(mass_name[i]), QtWidgets.QTableWidgetItem('{:.6e}'.format(result.params[mass_name[i]].value)))
+                    try:self.Table_calc.setItem(EXP,self.Name_list.index(mass_name[i]), QtWidgets.QTableWidgetItem('{:.2e}'.format(result.params[mass_name[i]].value)))
                     except:pass
                     self.Table_data.loc[EXP,mass_name[i]] = result.params[mass_name[i]].value
                 else:
@@ -663,10 +668,10 @@ class Function(Window):
                     self.Table_data.loc[EXP,mass_name[i]] = Start_parametrs[2+i]
            
             self.Table_data.loc[EXP,'dG'] = result.params['dH'].value-(self.dG_temp.value()+273.15)*result.params['dS'].value
-            try:self.Table_calc.setItem(EXP,self.Name_list.index('dG'), QtWidgets.QTableWidgetItem('{:.6e}'.format(result.params['dH'].value - (self.dG_temp.value()+273.15)*result.params['dS'].value)))
+            try:self.Table_calc.setItem(EXP,self.Name_list.index('dG'), QtWidgets.QTableWidgetItem(str(round(result.params['dH'].value - (self.dG_temp.value()+273.15)*result.params['dS'].value,2))))
             except:pass
 
-            try:self.Table_calc.setItem(EXP,self.Name_list.index('CKO'), QtWidgets.QTableWidgetItem('{:.6e}'.format(result.chisqr)))
+            try:self.Table_calc.setItem(EXP,self.Name_list.index('CKO'), QtWidgets.QTableWidgetItem('{:.2e}'.format(result.chisqr)))
             except:pass
             self.Table_data.loc[EXP,'CKO'] = result.chisqr
 
@@ -724,8 +729,8 @@ class Function(Window):
             
 
             try:
-                self.Table_calc.setItem(EXP,self.Name_list.index('dH'), QtWidgets.QTableWidgetItem('{:.6e}'.format(dH)))
-                self.Table_calc.setItem(EXP,self.Name_list.index('dS'), QtWidgets.QTableWidgetItem('{:.6e}'.format(dS)))
+                self.Table_calc.setItem(EXP,self.Name_list.index('dH'), QtWidgets.QTableWidgetItem(str(round(dH,2))))
+                self.Table_calc.setItem(EXP,self.Name_list.index('dS'), QtWidgets.QTableWidgetItem(str(round(dS,2))))
             except:
                 pass
             self.Table_data.loc[EXP,'dH'] = dH
@@ -745,7 +750,15 @@ class Function(Window):
             Save_data = copy.deepcopy(self.Source_data)
         elif method == 'with_calib':
             Save_data = copy.deepcopy(self.Calib_Data)
-        
+            New_save_data = [[],[]]
+            if self.Baseline_check.isChecked():
+                for EXP in range(0,len(Save_data[0])):
+                    if Save_data[0][EXP][4] != self.Baseline_list.currentText():
+                        New_save_data[0].append(Save_data[0][EXP])
+                        New_save_data[1].append(Save_data[1][EXP])
+                Save_data = New_save_data
+
+
         if savetype == 'SV1':
             Ramp_list = set(sorted([Save_data[0][i][5] for i in range(0,len(Save_data[0]))]))
             for RAMP in Ramp_list:
@@ -818,21 +831,20 @@ class Function(Window):
             if len(file) == 0: 
                 return 
             file=open(file,"a")
-            file.write(';'.join(self.Name_list)+"\n")
-            for row in range(0,self.Table_calc.rowCount()):
+            table = ["Sample", "Name","Conc","sT","eT","light","Ramp","dH","ErrordH","dS","ErrordS","Bss","Css","Bds","Cds","dG","Tm","CKO"]
+            file.write(';'.join(table)+"\n")
+            for row in range(0,len(self.Table_data.index)):
                 row_data = []
-                for col in range(0,self.Table_calc.columnCount()):
-                    try:
-                        row_data.append(self.Table_calc.model().data(self.Table_calc.model().index(row,col)))
-                    except:
-                        row_data.append('')
+                for col in range(0,len(self.Table_data.columns)):
+                        row_data.append(str(self.Table_data.loc[row,table[col]]))
                 row_data = ";".join(row_data).replace(".",",")
                 file.write(str(row_data)+"\n")
 
     def Data_add(self,Name, data):
-          self.Table_calc.setItem(self.selected_row,self.Name_list.index(Name), QtWidgets.QTableWidgetItem('{:.6e}'.format(float(data))))
-          self.Table_data.loc[self.selected_row,Name] = float(data)
-          Function.review_data(self, False)
+        try:self.Table_calc.setItem(self.selected_row,self.Name_list.index(Name), QtWidgets.QTableWidgetItem('{:.6e}'.format(float(data))))
+        except: pass
+        self.Table_data.loc[self.selected_row,Name] = float(data)
+        Function.review_data(self, False)
 
     def Recalc_dA(self, point):
         Mass_X = []
@@ -847,8 +859,8 @@ class Function(Window):
 
     def HotKeyCopy(self):
         time.sleep(1)
-        pyperclip.copy(self.Table_data.iloc[[i.row() for i in self.Table_calc.selectionModel().selectedIndexes()]].to_csv())
-
+        data = str(self.File_open) +"\n"+ self.Table_data.iloc[[i.row() for i in self.Table_calc.selectionModel().selectedIndexes()]].to_csv()
+        pyperclip.copy(data)
 
 
 def main():
