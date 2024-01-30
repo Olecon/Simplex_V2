@@ -1,4 +1,4 @@
-This program is created to approximate curve of melting DNA/DNA complexes. It include three models: Non-self-complementary, self-complemented and hairpin, accounting for water expansion. This program can parset curves from spectrophotometer Cary 300 and Cary 3500.
+This program is created to approximate curve of melting DNA/DNA complexes. It include three models: Non-self-complementary, self-complemented and hairpin, accounting for water expansion and calibration. This program can parset curves from spectrophotometer Cary 300 and Cary 3500.
 
 ![image](https://github.com/Olecon/Simplex_V2/assets/107347740/bf9fd0cf-599f-4247-a8ec-be4ee4b9b2b5)
 
