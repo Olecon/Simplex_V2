@@ -24,8 +24,6 @@ class Window(QtWidgets.QMainWindow,GUI_frame.Ui_MainWindow):
         self.Start_conf = []
         self.selected_row = 0
 
-        #self.setFocus()
-
         Function.read_configure(self)
         Function.Plot_graph(self)
 
@@ -55,7 +53,9 @@ class Window(QtWidgets.QMainWindow,GUI_frame.Ui_MainWindow):
 
         self.point_to_derivative.valueChanged.connect(lambda: Function.Recalc_dA(self, self.point_to_derivative.value()))
         self.Run_Command.clicked.connect(lambda: Function.Write(self))
-        keyboard.add_hotkey('ctrl+C', lambda: Function.HotKeyCopy(self))
+        keyboard.add_hotkey('ctrl+C', lambda: Function.HotKeyCopyTable(self))
+        keyboard.add_hotkey('ctrl+shift+C', lambda: Function.HotKeyCopyData(self))
+
 
 class Function(Window):
     
@@ -133,7 +133,6 @@ class Function(Window):
         
         self.Source_data = locals()['result']
         self.File_open = copy.deepcopy(file)
-        
         self.menu_2.setDisabled(True)
         self.menu_6.setDisabled(True)
         self.Baseline_list.setDisabled(True)
@@ -710,10 +709,6 @@ class Function(Window):
                             x = self.Calib_Data[2][EXP][0][Start_TEMP_INDEX:END_TEMP_INDEX])
 
             w = abs(2.35482*result.params['c'].value)
-            #print(w)
-            #print((result.params['b'].value+w/2))
-            #print((result.params['b'].value))
-
             
             if self.model.currentText() == "Несамокомплемент":
                 dH = -4.37/(1/(result.params['b'].value+273.15)-1/(result.params['b'].value+273.15+w/2))
@@ -857,15 +852,36 @@ class Function(Window):
         self.Table_data.loc[self.selected_row,'Dev'] = self.point_to_derivative.value()
         Function.review_data(self,True)
 
-    def HotKeyCopy(self):
+    def HotKeyCopyTable(self):
         if not self.Table_calc.hasFocus():
             return
-        print('СРАБОТАЛ')
         time.sleep(0.5)
         list_row = [i for i in set([i.row() for i in self.Table_calc.selectionModel().selectedIndexes()])]
         data = str(self.File_open) +"\n"+ self.Table_data.iloc[list_row].to_csv().replace(',',';').replace('.',',')
         pyperclip.copy(data)
+    
+    def HotKeyCopyData(self):
+        if not self.Table_calc.hasFocus():
+            return
+        time.sleep(0.5)
+        list_row = [i for i in set([i.row() for i in self.Table_calc.selectionModel().selectedIndexes()])]
+        data = [[]]
+        for EXP in range(len(list_row)):
+            line_data = [str(i) for i in self.Calib_Data[0][list_row[EXP]]]
+            if self.Baseline_check.isChecked():
+                line_data.append('baseline_' + str(self.Baseline_list.currentText())+';')
+            else:
+                line_data.append(';')
+            data[0].append('_'.join(line_data))
 
+        for line in range(len(self.Calib_Data[1][0][0])):
+            data.append([])
+            for EXP in range(len(list_row)):
+                data[line+1].append(str(self.Calib_Data[1][EXP][0][line]).replace('.',','))
+                data[line+1].append(str(self.Calib_Data[1][EXP][1][line]).replace('.',','))
+        data_to_copy = '\n'.join([';'.join(i) for i in data])
+        pyperclip.copy(data_to_copy)
+    
     def Write(self):
         for cell in [[i.row(),i.column()] for i in self.Table_calc.selectionModel().selectedIndexes()]:
             self.Table_calc.setItem(cell[0],cell[1], QtWidgets.QTableWidgetItem(self.CommandLine.text()))
@@ -873,6 +889,7 @@ class Function(Window):
                 self.Table_data.loc[cell[0],self.Name_list[cell[1]]] = float(self.CommandLine.text())
             except:
                 self.Table_data.loc[cell[0],self.Name_list[cell[1]]] = float(self.CommandLine.text())
+
 def main():
     app = QtWidgets.QApplication(sys.argv)
     window = Window()
