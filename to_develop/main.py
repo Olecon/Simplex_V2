@@ -877,8 +877,8 @@ class Function(Window):
         for line in range(len(self.Calib_Data[1][0][0])):
             data.append([])
             for EXP in range(len(list_row)):
-                data[line+1].append(str(self.Calib_Data[1][EXP][0][line]).replace('.',','))
-                data[line+1].append(str(self.Calib_Data[1][EXP][1][line]).replace('.',','))
+                data[line+1].append(str(self.Calib_Data[1][list_row[EXP]][0][line]).replace('.',','))
+                data[line+1].append(str(self.Calib_Data[1][list_row[EXP]][1][line]).replace('.',','))
         data_to_copy = '\n'.join([';'.join(i) for i in data])
         pyperclip.copy(data_to_copy)
     
