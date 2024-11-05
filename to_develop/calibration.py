@@ -14,17 +14,20 @@ def Use_calib(Source_data, pribor, method):
         Calibration_mass.append(file)
 
     for EXP in range(0,len(Calib_data[0])):
+        
+        
         Sample = int(Calib_data[0][EXP][0])-1 # Начинается с 0
         Stage = int(Calib_data[0][EXP][5]) # Начинается с 1, потому что в калибровочном файле 0 столбец - исходная температура
-        New_Temperature_Mass = []
-        Source_Temperature_in_calibtation_file = [i[0] for i in Calibration_mass[Sample]]
-        Source_Stage_Temperature_in_calibration_file = [i[Stage] for i in Calibration_mass[Sample]]
+        
+        
+        
+        Source_Temperature_in_calibtation_file = np.array([float(i[0]) for i in Calibration_mass[Sample]])
+        Source_Stage_Temperature_in_calibration_file = np.array([float(i[Stage]) for i in Calibration_mass[Sample]])
 
-        for Source_Temperature in Calib_data[1][EXP][0]:
-            Position = [abs(float(i) - float(Source_Temperature)) for i in Source_Temperature_in_calibtation_file].index(min([abs(float(i) - float(Source_Temperature)) for i in Source_Temperature_in_calibtation_file]))
-            New_Temperature_Mass.append(float(Source_Stage_Temperature_in_calibration_file[Position]))
-    
-        Calib_data[1][EXP][0] = New_Temperature_Mass
+        nearest_val_position = np.vectorize(lambda t: (np.abs(t - Source_Temperature_in_calibtation_file)).argmin())
+        nearest_val_position = nearest_val_position(np.array(Calib_data[1][EXP][0]))
+
+        Calib_data[1][EXP][0] = Source_Stage_Temperature_in_calibration_file[nearest_val_position]
 
     Mass = []
     for EXP in range(0,len(Calib_data[1])):

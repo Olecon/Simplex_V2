@@ -489,7 +489,7 @@
             <number>2</number>
            </property>
            <property name="maximum">
-            <number>10</number>
+            <number>100</number>
            </property>
           </widget>
           <widget class="QCheckBox" name="Bds">
@@ -684,6 +684,8 @@
      <string>Выполнить</string>
     </property>
     <addaction name="Graph"/>
+    <addaction name="Copy_table_selected_rows"/>
+    <addaction name="Copy_data_selected_rows"/>
    </widget>
    <widget class="QMenu" name="menu_4">
     <property name="enabled">
@@ -946,6 +948,16 @@
    </property>
    <property name="text">
     <string>Таблицу в буфер</string>
+   </property>
+  </action>
+  <action name="Copy_table_selected_rows">
+   <property name="text">
+    <string>Скопировать таблицу</string>
+   </property>
+  </action>
+  <action name="Copy_data_selected_rows">
+   <property name="text">
+    <string>Скопировать данные</string>
    </property>
   </action>
  </widget>

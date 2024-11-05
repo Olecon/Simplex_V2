@@ -53,15 +53,46 @@ class Window(QtWidgets.QMainWindow,GUI_frame.Ui_MainWindow):
 
         self.point_to_derivative.valueChanged.connect(lambda: Function.Recalc_dA(self, self.point_to_derivative.value()))
         self.Run_Command.clicked.connect(lambda: Function.Write(self))
-        keyboard.add_hotkey('ctrl+C', lambda: Function.HotKeyCopyTable(self))
-        keyboard.add_hotkey('ctrl+shift+C', lambda: Function.HotKeyCopyData(self))
+        keyboard.add_hotkey('ctrl+c', lambda: Function.HotKeyCopyTable(self,True))
+        keyboard.add_hotkey('ctrl+shift+c', lambda: Function.HotKeyCopyData(self,True))
+        self.Copy_table_selected_rows.triggered.connect(lambda:Function.HotKeyCopyTable(self,False))
+        self.Copy_data_selected_rows.triggered.connect(lambda:Function.HotKeyCopyData(self,False))
 
+class Fit_functions():
+    def NoSelfComp(x,dH,dS,Bss,Css,Bds,Cds,WATER,C0):
+        #Учет воды
+        if WATER == 0:
+            Ct = float(C0)*1.00303/(1+(-1)*0.0000000000013*(x-4)**5+0.00000000042*(x-4)**4-0.000000065*(x-4)**3+0.0000083*(x-4)**2-0.000005*(x-4))
+        else:
+            Ct = float(C0)
+        
+        K = np.exp(-(dH-(x+273.15)*dS)/(1.9872*(x+273.15)))
+        alpha= (1+Ct*K-np.sqrt(1+2*Ct*K))/(Ct*K)
+        return (Bss+Css*x)*(1-alpha)+(Bds+Cds*x)*alpha
+    
+    def SelfComp(x,dH,dS,Bss,Css,Bds,Cds,WATER,C0):
+        if WATER == 0:
+            Ct = float(C0)*1.00303/(1+(-1)*0.0000000000013*(x-4)**5+0.00000000042*(x-4)**4-0.000000065*(x-4)**3+0.0000083*(x-4)**2-0.000005*(x-4))
+        else:
+            Ct = float(C0)
+        K = np.exp(-(dH-(x+273.15)*dS)/(1.9872*(x+273.15)))
+        alpha = 1+1/(2*K*Ct)-np.sqrt(4*K*Ct+1)/(2*K*Ct)
+        return (Bss+Css*x)*(1-alpha)+(Bds+Cds*x)*alpha  
 
+    def loop(x,dH,dS,Bss,Css,Bds,Cds,WATER,C0):
+        if WATER == 0:
+            Ct = float(C0)*1.00303/(1+(-1)*0.0000000000013*(x-4)**5+0.00000000042*(x-4)**4-0.000000065*(x-4)**3+0.0000083*(x-4)**2-0.000005*(x-4))
+        else:
+            Ct = float(C0)
+        K = np.exp(-(dH-(x+273.15)*dS)/(1.9872*(x+273.15)))
+        alpha = K/(1+K)
+        return (Bss+Css*x)*(1-alpha)+(Bds+Cds*x)*alpha
 class Function(Window):
     
     def read_configure(self):
         config = configparser.ConfigParser()
-        config.readfp(codecs.open("config.ini", "r", "utf8"))
+        config.read("./config.ini", encoding='utf-8')
+        print(config.sections())
         self.model.addItems(config['Standard']['Model_list'].split(','))
         self.pribor.addItems(config['Standard']['Pribor_list'].split(','))
         self.dG_temp.setValue(int(config['Standard']['Gibbs_Temp']))
@@ -169,7 +200,10 @@ class Function(Window):
             pass
 
     def use_calib(self):
+        start_time = time.time()
         self.Calib_Data = calibration.Use_calib(self.Source_data, self.pribor.currentText(), self.method.currentText())
+        end_time = time.time()
+        print('Elapsed time: ', end_time - start_time)
         self.Calibration.setDisabled(True)
         self.Baseline_list.clear()
         self.Baseline_list.addItems(set([i[4] for i in self.Source_data[0]]))
@@ -182,7 +216,6 @@ class Function(Window):
         self.Table_data = pd.DataFrame({"Sample":[str(i[0]) for i in self.Calib_Data[0]], 
                                        "Name":[str(i[1]) for i in self.Calib_Data[0]],
                                        "Conc":[str(i[2]) for i in self.Calib_Data[0]],
-                                       "Dev": [4 for i in self.Calib_Data[0]],
                                        "sT":[5.0 for i in self.Calib_Data[0]],
                                        "eT":[95.0 for i in self.Calib_Data[0]],
                                        "light":[i[4] for i in self.Calib_Data[0]],
@@ -308,187 +341,48 @@ class Function(Window):
         self.plot = self.PLT.plot(self.Calib_Data[1][self.selected_row][0],self.Calib_Data[1][self.selected_row][1], pen=None,symbolBrush = 0.1)
         self.dplot = self.DPLT.plot(self.Calib_Data[2][self.selected_row][0],self.Calib_Data[2][self.selected_row][1], pen=None,symbolBrush = 0.1)
         
-        #Функции для построения графика
-        #Не самокомплимент
-        def NoSelfComp(Tmass,dH,dS,Bss,Css,Bds,Cds, Start_conf, C0):
-            Y_mass = []
-            for T in Tmass:
-                T=float(T)
-                try:
-                    if Start_conf[6]:
-                        Ct = float(C0)*1.00303/(1+(-1)*0.0000000000013*(T-4)**5+0.00000000042*(T-4)**4-0.000000065*(T-4)**3+0.0000083*(T-4)**2-0.000005*(T-4))
-                    else:
-                        Ct = float(C0)
-                except: Ct=float(C0)
-                
-                K = np.exp((-dH + (T+273.15)*dS)/(1.987*(T+273.15)))                
-                alpha= (1+Ct*K-np.sqrt(1+2*Ct*K))/(Ct*K)
-                A = (Bss+Css*T)*(1-alpha)+(Bds+Cds*T)*alpha
-                Y_mass.append(A)
-            return Y_mass 
-        #Самокомплимент
-        def SelfComp(Tmass,dH,dS,Bss,Css,Bds,Cds, Start_conf, C0):
-            Y_mass = []
-            for T in Tmass:
-                T=float(T)
-                try:
-                    if Start_conf[6]:
-                        Ct = float(C0)*1.00303/(1+(-1)*0.0000000000013*(T-4)**5+0.00000000042*(T-4)**4-0.000000065*(T-4)**3+0.0000083*(T-4)**2-0.000005*(T-4))
-                    else:
-                        Ct = float(C0)
-                except: Ct=float(C0)
-                
-                K = np.exp((-dH + (T+273.15)*dS)/(1.987*(T+273.15)))                
-                alpha = 1+1/(2*K*Ct)-np.sqrt(4*K*Ct+1)/(2*K*Ct)
-                A = (Bss+Css*T)*(1-alpha)+(Bds+Cds*T)*alpha
-                Y_mass.append(A)
-            return Y_mass     
-        #Шпилька
-        def loop(Tmass,dH,dS,Bss,Css,Bds,Cds, Start_conf, C0):
-            Y_mass = []
-            for T in Tmass:
-                T=float(T)
-                try:
-                    if Start_conf[6]:
-                        Ct = float(C0)*1.00303/(1+(-1)*0.0000000000013*(T-4)**5+0.00000000042*(T-4)**4-0.000000065*(T-4)**3+0.0000083*(T-4)**2-0.000005*(T-4))
-                    else:
-                        Ct = float(C0)
-                except: Ct=float(C0)
-                
-                K = np.exp((-dH + (T+273.15)*dS)/(1.987*(T+273.15)))                
-                alpha = K/(1+K)
-                A = (Bss+Css*T)*(1-alpha)+(Bds+Cds*T)*alpha
-                Y_mass.append(A)
-            return Y_mass
-        
         #Функции для построения графика производной 
-        def DNoSelfComp(Tmass,dH,dS,Bss,Css,Bds,Cds, Start_conf, C0):
-            Y_mass = []
-            for T in Tmass:
-                T=float(T)
-                try:
-                    if Start_conf[6]:
-                        Ct = float(C0)*1.00303/(1+(-1)*0.0000000000013*(T-4)**5+0.00000000042*(T-4)**4-0.000000065*(T-4)**3+0.0000083*(T-4)**2-0.000005*(T-4))
-                    else:
-                        Ct = float(C0)
-                except: Ct=float(C0)
-                
-                K = np.exp((-dH + (T+273.15)*dS)/(1.987*(T+273.15)))                
-                alpha= (1+Ct*K-np.sqrt(1+2*Ct*K))/(Ct*K)
-                A = (Bss+Css*T)*(1-alpha)+(Bds+Cds*T)*alpha
-                Y_mass.append(A)
-            Mass_X = []
-            Mass_Y = []
-
-            for POINT in range(0,len(Tmass)-4):
-                Mass_Y.append(np.polyfit(Tmass[POINT:POINT+4],Y_mass[POINT:POINT+4],deg=1).tolist()[0])
-                Mass_X.append(Tmass[POINT+2])
+        def Calculation_of_the_derivative(Mass_X,Mass_Y):
+            D_Mass_X,D_Mass_Y = [],[]
+            for POINT in range(0,len(Mass_X)-4):
+                D_Mass_Y.append(np.polyfit(Mass_X[POINT:POINT+4],Mass_Y[POINT:POINT+4],deg=1)[0])
+                D_Mass_X.append(Mass_X[POINT+2])
             
-            return Mass_X, Mass_Y
-        def DSelfComp(Tmass,dH,dS,Bss,Css,Bds,Cds, Start_conf, C0):
-            Y_mass = []
-            for T in Tmass:
-                T=float(T)
-                try:
-                    if Start_conf[6]:
-                        Ct = float(C0)*1.00303/(1+(-1)*0.0000000000013*(T-4)**5+0.00000000042*(T-4)**4-0.000000065*(T-4)**3+0.0000083*(T-4)**2-0.000005*(T-4))
-                    else:
-                        Ct = float(C0)
-                except: Ct=float(C0)
-                
-                K = np.exp((-dH + (T+273.15)*dS)/(1.987*(T+273.15)))                
-                alpha = 1+1/(2*K*Ct)-np.sqrt(4*K*Ct+1)/(2*K*Ct)
-                A = (Bss+Css*T)*(1-alpha)+(Bds+Cds*T)*alpha
-                Y_mass.append(A)
-            
-            Mass_X = []
-            Mass_Y = []
-
-            for POINT in range(0,len(Tmass)-4):
-                Mass_Y.append(np.polyfit(Tmass[POINT:POINT+4],Y_mass[POINT:POINT+4],deg=1).tolist()[0])
-                Mass_X.append(Tmass[POINT+2])
-            
-            return Mass_X, Mass_Y
-        def Dloop(Tmass,dH,dS,Bss,Css,Bds,Cds, Start_conf, C0):
-            Y_mass = []
-            for T in Tmass:
-                T=float(T)
-                try:
-                    if Start_conf[6]:
-                        Ct = float(C0)*1.00303/(1+(-1)*0.0000000000013*(T-4)**5+0.00000000042*(T-4)**4-0.000000065*(T-4)**3+0.0000083*(T-4)**2-0.000005*(T-4))
-                    else:
-                        Ct = float(C0)
-                except: Ct=float(C0)
-                
-                K = np.exp((-dH + (T+273.15)*dS)/(1.987*(T+273.15)))                
-                alpha = K/(1+K)
-                A = (Bss+Css*T)*(1-alpha)+(Bds+Cds*T)*alpha
-                Y_mass.append(A)
-            
-            Mass_X = []
-            Mass_Y = []
-
-            for POINT in range(0,len(Tmass)-4):
-                Mass_Y.append(np.polyfit(Tmass[POINT:POINT+4],Y_mass[POINT:POINT+4],deg=1).tolist()[0])
-                Mass_X.append(Tmass[POINT+2])
-            
-            return Mass_X, Mass_Y
-        ###########################################
-        if self.model.currentText() == "Несамокомплемент":
-            MassX = np.linspace(int(min(self.Calib_Data[1][self.selected_row][0])),int(max(self.Calib_Data[1][self.selected_row][0])),2000).tolist()
-            MassY = NoSelfComp(MassX, self.Table_data.loc[self.selected_row,'dH'],
-                                self.Table_data.loc[self.selected_row,'dS'],
-                                self.Table_data.loc[self.selected_row,'Bss'],
-                                self.Table_data.loc[self.selected_row,'Css'],
-                                self.Table_data.loc[self.selected_row,'Bds'],
-                                self.Table_data.loc[self.selected_row,'Cds'],self.Start_conf,
-                                self.Table_data.loc[self.selected_row,'Conc'])
-            self.PlotGraph = self.PLT.plot(MassX,MassY,  pen='r',width=50)
-            Mass_X, Mass_Y = DNoSelfComp(MassX, self.Table_data.loc[self.selected_row,'dH'],
-                                self.Table_data.loc[self.selected_row,'dS'],
-                                self.Table_data.loc[self.selected_row,'Bss'],
-                                self.Table_data.loc[self.selected_row,'Css'],
-                                self.Table_data.loc[self.selected_row,'Bds'],
-                                self.Table_data.loc[self.selected_row,'Cds'],self.Start_conf,
-                                self.Table_data.loc[self.selected_row,'Conc'])
-            self.DPlotGraph = self.DPLT.plot(Mass_X,Mass_Y,  pen='r')
-        elif self.model.currentText() == "Cамокомплемент":
-            MassX = np.linspace(int(min(self.Calib_Data[1][self.selected_row][0])),int(max(self.Calib_Data[1][self.selected_row][0])),2000).tolist()
-            MassY = SelfComp(MassX, self.Table_data.loc['dH',self.selected_row,],
-                                self.Table_data.loc[self.selected_row,'dS'],
-                                self.Table_data.loc[self.selected_row,'Bss'],
-                                self.Table_data.loc[self.selected_row,'Css'],
-                                self.Table_data.loc[self.selected_row,'Bds'],
-                                self.Table_data.loc[self.selected_row,'Cds'],self.Start_conf,
-                                self.Table_data.loc[self.selected_row,'Conc'])
-            self.PlotGraph = self.PLT.plot(MassX,MassY,  pen='r')
-            Mass_X, Mass_Y = DSelfComp(MassX, self.Table_data.loc[self.selected_row,'dH'],
-                                self.Table_data.loc[self.selected_row,'dS'],
-                                self.Table_data.loc[self.selected_row,'Bss'],
-                                self.Table_data.loc[self.selected_row,'Css'],
-                                self.Table_data.loc[self.selected_row,'Bds'],
-                                self.Table_data.loc[self.selected_row,'Cds'],self.Start_conf,
-                                self.Table_data.loc[self.selected_row,'Conc'])
-            self.DPlotGraph = self.DPLT.plot(Mass_X,Mass_Y,  pen='r')
-        elif self.model.currentText() == "Шпилька":
-            MassX = np.linspace(int(min(self.Calib_Data[1][self.selected_row][0])),int(max(self.Calib_Data[1][self.selected_row][0])),2000).tolist()
-            MassY = loop(MassX, self.Table_data.loc[self.selected_row,'dH'],
-                                self.Table_data.loc[self.selected_row,'dS'],
-                                self.Table_data.loc[self.selected_row,'Bss'],
-                                self.Table_data.loc[self.selected_row,'Css'],
-                                self.Table_data.loc[self.selected_row,'Bds'],
-                                self.Table_data.loc[self.selected_row,'Cds'],self.Start_conf,
-                                self.Table_data.loc[self.selected_row,'Conc'])
-            self.PlotGraph = self.PLT.plot(MassX,MassY,  pen='r', )
-            Mass_X, Mass_Y = Dloop(MassX, self.Table_data.loc[self.selected_row,'dH'],
-                                self.Table_data.loc[self.selected_row,'dS'],
-                                self.Table_data.loc[self.selected_row,'Bss'],
-                                self.Table_data.loc[self.selected_row,'Css'],
-                                self.Table_data.loc[self.selected_row,'Bds'],
-                                self.Table_data.loc[self.selected_row,'Cds'],self.Start_conf,
-                                self.Table_data.loc[self.selected_row,'Conc'])
-            self.DPlotGraph = self.DPLT.plot(Mass_X,Mass_Y,  pen='r',width=5)
+            return D_Mass_X, D_Mass_Y
         
+        ###########################################
+        MassX = np.linspace(int(min(self.Calib_Data[1][self.selected_row][0])),int(max(self.Calib_Data[1][self.selected_row][0])),2000)
+        
+        if self.model.currentText() == "Несамокомплемент":
+            MassY = Fit_functions.NoSelfComp(MassX, self.Table_data.loc[self.selected_row,'dH'],
+                                self.Table_data.loc[self.selected_row,'dS'],
+                                self.Table_data.loc[self.selected_row,'Bss'],
+                                self.Table_data.loc[self.selected_row,'Css'],
+                                self.Table_data.loc[self.selected_row,'Bds'],
+                                self.Table_data.loc[self.selected_row,'Cds'],self.Start_conf,
+                                self.Table_data.loc[self.selected_row,'Conc'])
+        elif self.model.currentText() == "Cамокомплемент":
+            MassY = Fit_functions.SelfComp(MassX, self.Table_data.loc['dH',self.selected_row,],
+                                self.Table_data.loc[self.selected_row,'dS'],
+                                self.Table_data.loc[self.selected_row,'Bss'],
+                                self.Table_data.loc[self.selected_row,'Css'],
+                                self.Table_data.loc[self.selected_row,'Bds'],
+                                self.Table_data.loc[self.selected_row,'Cds'],self.Start_conf,
+                                self.Table_data.loc[self.selected_row,'Conc'])
+        elif self.model.currentText() == "Шпилька":
+            MassY = Fit_functions.loop(MassX, self.Table_data.loc[self.selected_row,'dH'],
+                                self.Table_data.loc[self.selected_row,'dS'],
+                                self.Table_data.loc[self.selected_row,'Bss'],
+                                self.Table_data.loc[self.selected_row,'Css'],
+                                self.Table_data.loc[self.selected_row,'Bds'],
+                                self.Table_data.loc[self.selected_row,'Cds'],self.Start_conf,
+                                self.Table_data.loc[self.selected_row,'Conc'])
+            
+        D_Mass_X, D_Mass_Y = Calculation_of_the_derivative(MassX,MassY)
+        ###  
+        self.PlotGraph = self.PLT.plot(MassX,MassY,  pen='r',width=50)
+        self.DPlotGraph = self.DPLT.plot(D_Mass_X,D_Mass_Y,  pen='r',width=50)
+        ###
         self.PLT.setXRange(min(self.Calib_Data[1][self.selected_row][0]),max(self.Calib_Data[1][self.selected_row][0]))
         self.PLT.setYRange(min(self.Calib_Data[1][self.selected_row][1]),max(self.Calib_Data[1][self.selected_row][1]))
 
@@ -499,7 +393,6 @@ class Function(Window):
         self.max_line_to_PLT.setPos(self.Table_data.loc[self.selected_row,'eT'])
         self.min_line_to_DPLT.setPos(self.Table_data.loc[self.selected_row,'sT']) 
         self.max_line_to_DPLT.setPos(self.Table_data.loc[self.selected_row,'eT'])
-        self.point_to_derivative.setValue(self.Table_data.loc[self.selected_row,'Dev'])
 
         if edit == True:
             self.Entalpy_edit.setText(str(round(self.Table_data.loc[self.selected_row,'dH'],2)))
@@ -508,8 +401,6 @@ class Function(Window):
             self.Css_edit.setText('{:.6e}'.format(self.Table_data.loc[self.selected_row,'Css']))
             self.Bds_edit.setText('{:.6e}'.format(self.Table_data.loc[self.selected_row,'Bds']))
             self.Cds_edit.setText('{:.6e}'.format(self.Table_data.loc[self.selected_row,'Cds']))
-        #self.Start_temp_edit.setText(str(round(self.Table_data.loc[self.selected_row,'sT'],1)))
-        #self.End_temp_edit.setText(str(round(self.Table_data.loc[self.selected_row,'eT'],1)))
 
     def Usage_baseline(self):
         prepare_mass = [] 
@@ -543,8 +434,6 @@ class Function(Window):
             [self.Table_calc.showRow(i) for i in set([j[1] for j in prepare_mass])] # Показать строки базовой линии
             self.Baseline_list.setEnabled(True)
             self.menu_6.setDisabled(False)
-        for EXP in range(0,len(self.Calib_Data[0])):
-            self.Table_data.loc[EXP,'Dev'] = 4
 
     def Approximation(self):
         Start_parametrs = []
@@ -569,35 +458,7 @@ class Function(Window):
         self.Start_conf = [not i for i in self.Start_conf]
         
         self.Start_conf.append(self.Water.isChecked())
-        
-        def NoSelfComp(x,dH,dS,Bss,Css,Bds,Cds,WATER,C0):
-            #Учет воды
-            if WATER == 0:
-                Ct = float(C0)*1.00303/(1+(-1)*0.0000000000013*(x-4)**5+0.00000000042*(x-4)**4-0.000000065*(x-4)**3+0.0000083*(x-4)**2-0.000005*(x-4))
-            else:
-                Ct = float(C0)
-            
-            K = np.exp(-(dH-(x+273.15)*dS)/(1.9872*(x+273.15)))
-            alpha= (1+Ct*K-np.sqrt(1+2*Ct*K))/(Ct*K)
-            return (Bss+Css*x)*(1-alpha)+(Bds+Cds*x)*alpha
-            
-        def SelfComp(x,dH,dS,Bss,Css,Bds,Cds,WATER,C0):
-            if WATER == 0:
-                Ct = float(C0)*1.00303/(1+(-1)*0.0000000000013*(x-4)**5+0.00000000042*(x-4)**4-0.000000065*(x-4)**3+0.0000083*(x-4)**2-0.000005*(x-4))
-            else:
-                Ct = float(C0)
-            K = np.exp(-(dH-(x+273.15)*dS)/(1.9872*(x+273.15)))
-            alpha = 1+1/(2*K*Ct)-np.sqrt(4*K*Ct+1)/(2*K*Ct)
-            return (Bss+Css*x)*(1-alpha)+(Bds+Cds*x)*alpha  
-
-        def loop(x,dH,dS,Bss,Css,Bds,Cds,WATER,C0):
-            if WATER == 0:
-                Ct = float(C0)*1.00303/(1+(-1)*0.0000000000013*(x-4)**5+0.00000000042*(x-4)**4-0.000000065*(x-4)**3+0.0000083*(x-4)**2-0.000005*(x-4))
-            else:
-                Ct = float(C0)
-            K = np.exp(-(dH-(x+273.15)*dS)/(1.9872*(x+273.15)))
-            alpha = K/(1+K)
-            return (Bss+Css*x)*(1-alpha)+(Bds+Cds*x)*alpha
+    
 
         for EXP in set([i.row() for i in self.Table_calc.selectionModel().selectedIndexes()]):
             Start_TEMP_INDEX = [abs(float(i) - float(self.Table_data.loc[EXP,'sT'])) for i in self.Calib_Data[1][EXP][0]].index(min([abs(float(i) - float(self.Table_data.loc[EXP,'sT'])) for i in self.Calib_Data[1][EXP][0]]))
@@ -606,11 +467,11 @@ class Function(Window):
                 Start_TEMP_INDEX, END_TEMP_INDEX = END_TEMP_INDEX,Start_TEMP_INDEX
            
             if self.model.currentText() == "Несамокомплемент":
-                model = Model(NoSelfComp)
+                model = Model(Fit_functions.NoSelfComp)
             elif self.model.currentText() == "Самокомплемент":
-                model = Model(SelfComp)
+                model = Model(Fit_functions.SelfComp)
             elif self.model.currentText() == "Шпилька":
-                model = Model(loop)
+                model = Model(Fit_functions.loop)
             else:
                 print('Модель не найдена')
 
@@ -682,6 +543,7 @@ class Function(Window):
                 Tm = result.params['dH'].value/result.params['dS'].value
             self.Table_calc.setItem(EXP,self.Name_list.index('Tm'), QtWidgets.QTableWidgetItem(str(round(Tm-273.15,2))))
             self.Table_data.loc[EXP,'Tm'] = Tm-273.15
+            #result.best_fit
             print("Температура плавления: " +str(Tm-273.15))
             Function.review_data(self, True)
 
@@ -709,7 +571,7 @@ class Function(Window):
                             x = self.Calib_Data[2][EXP][0][Start_TEMP_INDEX:END_TEMP_INDEX])
 
             w = abs(2.35482*result.params['c'].value)
-            
+            print('Температура плавления по максимуму производной: '+str(result.params['b'].value))
             if self.model.currentText() == "Несамокомплемент":
                 dH = -4.37/(1/(result.params['b'].value+273.15)-1/(result.params['b'].value+273.15+w/2))
                 dS = (dH - 1.9872*(result.params['b']+273.15)*math.log(float(self.Table_data.loc[EXP,'Conc'])/4))/(result.params['b']+273.15)
@@ -842,43 +704,117 @@ class Function(Window):
         Function.review_data(self, False)
 
     def Recalc_dA(self, point):
-        Mass_X = []
-        Mass_Y = []
+        for row in range(len(self.Calib_Data[1])):
+            Mass_X = []
+            Mass_Y = []
+            for POINT in range(0,len(self.Calib_Data[1][row][0])-point):
+                Mass_Y.append(np.polyfit(self.Calib_Data[1][row][0][POINT:POINT+point],self.Calib_Data[1][row][1][POINT:POINT+point],deg=1).tolist()[0])
+                Mass_X.append(sum(self.Calib_Data[1][row][0][POINT:POINT+point])/len(self.Calib_Data[1][row][0][POINT:POINT+point]))
+            self.Calib_Data[2][row] = [Mass_X,Mass_Y]
 
-        for POINT in range(0,len(self.Calib_Data[1][self.selected_row][0])-point):
-            Mass_Y.append(np.polyfit(self.Calib_Data[1][self.selected_row][0][POINT:POINT+point],self.Calib_Data[1][self.selected_row][1][POINT:POINT+point],deg=1).tolist()[0])
-            Mass_X.append(sum(self.Calib_Data[1][self.selected_row][0][POINT:POINT+point])/len(self.Calib_Data[1][self.selected_row][0][POINT:POINT+point]))
-        self.Calib_Data[2][self.selected_row] = [Mass_X,Mass_Y]
-        self.Table_data.loc[self.selected_row,'Dev'] = self.point_to_derivative.value()
-        Function.review_data(self,True)
-
-    def HotKeyCopyTable(self):
-        if not self.Table_calc.hasFocus():
-            return
-        time.sleep(0.5)
+    def HotKeyCopyTable(self,hotkey):
+        if hotkey:
+            if not self.Table_calc.hasFocus():
+                return
+            time.sleep(0.5)
         list_row = [i for i in set([i.row() for i in self.Table_calc.selectionModel().selectedIndexes()])]
-        data = str(self.File_open) +"\n"+ self.Table_data.iloc[list_row].to_csv().replace(',',';').replace('.',',')
+        data = str(self.File_open) +"\n"+ self.Table_data.iloc[list_row].to_csv().replace(',',';')
         pyperclip.copy(data)
     
-    def HotKeyCopyData(self):
-        if not self.Table_calc.hasFocus():
-            return
-        time.sleep(0.5)
+    def HotKeyCopyData(self, hothey):
+        print('Data_coping')
+        def NoSelfComp(T,dH,dS,Bss,Css,Bds,Cds, Start_conf, C0):
+            T=float(T)
+            try:
+                if Start_conf[6]:
+                    Ct = float(C0)*1.00303/(1+(-1)*0.0000000000013*(T-4)**5+0.00000000042*(T-4)**4-0.000000065*(T-4)**3+0.0000083*(T-4)**2-0.000005*(T-4))
+                else:
+                    Ct = float(C0)
+            except: Ct=float(C0)
+            
+            K = np.exp((-dH + (T+273.15)*dS)/(1.987*(T+273.15)))                
+            alpha= (1+Ct*K-np.sqrt(1+2*Ct*K))/(Ct*K)
+            A = (Bss+Css*T)*(1-alpha)+(Bds+Cds*T)*alpha
+            return A 
+        #Самокомплимент
+        def SelfComp(T,dH,dS,Bss,Css,Bds,Cds, Start_conf, C0):
+            T=float(T)
+            try:
+                if Start_conf[6]:
+                    Ct = float(C0)*1.00303/(1+(-1)*0.0000000000013*(T-4)**5+0.00000000042*(T-4)**4-0.000000065*(T-4)**3+0.0000083*(T-4)**2-0.000005*(T-4))
+                else:
+                    Ct = float(C0)
+            except: Ct=float(C0)
+            
+            K = np.exp((-dH + (T+273.15)*dS)/(1.987*(T+273.15)))                
+            alpha = 1+1/(2*K*Ct)-np.sqrt(4*K*Ct+1)/(2*K*Ct)
+            A = (Bss+Css*T)*(1-alpha)+(Bds+Cds*T)*alpha
+            return A     
+        #Шпилька
+        def loop(T,dH,dS,Bss,Css,Bds,Cds, Start_conf, C0):
+            T=float(T)
+            try:
+                if Start_conf[6]:
+                    Ct = float(C0)*1.00303/(1+(-1)*0.0000000000013*(T-4)**5+0.00000000042*(T-4)**4-0.000000065*(T-4)**3+0.0000083*(T-4)**2-0.000005*(T-4))
+                else:
+                    Ct = float(C0)
+            except: Ct=float(C0)
+            
+            K = np.exp((-dH + (T+273.15)*dS)/(1.987*(T+273.15)))                
+            alpha = K/(1+K)
+            A = (Bss+Css*T)*(1-alpha)+(Bds+Cds*T)*alpha
+            return A
+        
+        if hothey:
+            if not self.Table_calc.hasFocus():
+                print('Не в фокусе')
+                return
+            time.sleep(0.5)
+
         list_row = [i for i in set([i.row() for i in self.Table_calc.selectionModel().selectedIndexes()])]
         data = [[]]
+
         for EXP in range(len(list_row)):
             line_data = [str(i) for i in self.Calib_Data[0][list_row[EXP]]]
             if self.Baseline_check.isChecked():
-                line_data.append('baseline_' + str(self.Baseline_list.currentText())+';')
+                line_data.append('baseline_' + str(self.Baseline_list.currentText())+';Native_data;Fit_data')
             else:
-                line_data.append(';')
+                line_data.append(';Native_data;Fit_data')
             data[0].append('_'.join(line_data))
-
         for line in range(len(self.Calib_Data[1][0][0])):
             data.append([])
             for EXP in range(len(list_row)):
-                data[line+1].append(str(self.Calib_Data[1][list_row[EXP]][0][line]).replace('.',','))
-                data[line+1].append(str(self.Calib_Data[1][list_row[EXP]][1][line]).replace('.',','))
+                if self.model.currentText() == "Несамокомплемент":
+                    Y_approximated = NoSelfComp(self.Calib_Data[1][list_row[EXP]][0][line], 
+                                        self.Table_data.loc[list_row[EXP],'dH'],
+                                        self.Table_data.loc[list_row[EXP],'dS'],
+                                        self.Table_data.loc[list_row[EXP],'Bss'],
+                                        self.Table_data.loc[list_row[EXP],'Css'],
+                                        self.Table_data.loc[list_row[EXP],'Bds'],
+                                        self.Table_data.loc[list_row[EXP],'Cds'],self.Start_conf,
+                                        self.Table_data.loc[list_row[EXP],'Conc'])
+                elif self.model.currentText() == "Cамокомплемент":
+                    Y_approximated = SelfComp(self.Calib_Data[1][list_row[EXP]][0][line], 
+                                        self.Table_data.loc[list_row[EXP],'dH'],
+                                        self.Table_data.loc[list_row[EXP],'dS'],
+                                        self.Table_data.loc[list_row[EXP],'Bss'],
+                                        self.Table_data.loc[list_row[EXP],'Css'],
+                                        self.Table_data.loc[list_row[EXP],'Bds'],
+                                        self.Table_data.loc[list_row[EXP],'Cds'],self.Start_conf,
+                                        self.Table_data.loc[list_row[EXP],'Conc'])
+                elif self.model.currentText() == "Шпилька":
+                    Y_approximated = loop(self.Calib_Data[1][list_row[EXP]][0][line], 
+                                        self.Table_data.loc[list_row[EXP],'dH'],
+                                        self.Table_data.loc[list_row[EXP],'dS'],
+                                        self.Table_data.loc[list_row[EXP],'Bss'],
+                                        self.Table_data.loc[list_row[EXP],'Css'],
+                                        self.Table_data.loc[list_row[EXP],'Bds'],
+                                        self.Table_data.loc[list_row[EXP],'Cds'],self.Start_conf,
+                                        self.Table_data.loc[list_row[EXP],'Conc'])
+
+                data[line+1].append(str(self.Calib_Data[1][list_row[EXP]][0][line]))
+                data[line+1].append(str(self.Calib_Data[1][list_row[EXP]][1][line]))
+                data[line+1].append(str(Y_approximated))
         data_to_copy = '\n'.join([';'.join(i) for i in data])
         pyperclip.copy(data_to_copy)
     
