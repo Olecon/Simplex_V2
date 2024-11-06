@@ -19,8 +19,6 @@ def Use_calib(Source_data, pribor, method):
         Sample = int(Calib_data[0][EXP][0])-1 # Начинается с 0
         Stage = int(Calib_data[0][EXP][5]) # Начинается с 1, потому что в калибровочном файле 0 столбец - исходная температура
         
-        
-        
         Source_Temperature_in_calibtation_file = np.array([float(i[0]) for i in Calibration_mass[Sample]])
         Source_Stage_Temperature_in_calibration_file = np.array([float(i[Stage]) for i in Calibration_mass[Sample]])
 
